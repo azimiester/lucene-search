@@ -12,6 +12,7 @@ package ir_course;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
@@ -20,7 +21,6 @@ import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.document.TextField;
-
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
@@ -33,35 +33,38 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TermRangeQuery;
 import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.similarities.BM25Similarity;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.RAMDirectory;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.search.BooleanClause;
+import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.en.EnglishAnalyzer;
+import org.apache.lucene.analysis.en.PorterStemFilter;
 
 public class LuceneSearchApp {
 	private Directory index;
-	private StandardAnalyzer analyzer;
+	private PorterAnalyzer analyzer;
 	private IndexWriterConfig config;
 	private IndexWriter writer;
 	private int count = 0;
 	public class LuceneConstants {
 		   public static final String TITLE="Title";
-		   public static final String DESCRIPTION="description";
-		   public static final String DATE="publication date";
+		   public static final String ABSTRACT="abstract";
 	}
 	public LuceneSearchApp() throws IOException {
 		this.index =  new RAMDirectory();
-		this.analyzer = new StandardAnalyzer();
+		this.analyzer = new PorterAnalyzer();
 		this.config = new IndexWriterConfig(analyzer);
 		this.writer = new IndexWriter(this.index, this.config);
 	}
 	
-	public void index(List<RssFeedDocument> docs) throws IOException {
-		for (RssFeedDocument doc : docs){
+	public void index(List<DocumentInCollection> docs) throws IOException {
+		for (DocumentInCollection doc : docs){
 	      Document document = new Document();
-	      document.add(new TextField(LuceneConstants.TITLE, doc.getTitle(), Field.Store.YES));
-	      document.add(new TextField(LuceneConstants.DESCRIPTION, doc.getDescription(), Field.Store.YES));
-	      document.add(new StringField(LuceneConstants.DATE, DateTools.dateToString(doc.getPubDate(),DateTools.Resolution.DAY),Field.Store.YES));
+	      document.add(new TextField("textContent", doc.getTitle()+doc.getAbstractText(), Field.Store.YES));
+	      //document.add(new TextField(LuceneConstants.ABSTRACT, doc.getAbstractText(), Field.Store.YES));
+	      //document.add(new StringField(LuceneConstants.QUERY, doc.getQuery(),Field.Store.YES));
 	      this.writer.addDocument(document);
 	      this.count++;
 		}
@@ -97,21 +100,13 @@ public class LuceneSearchApp {
 		}
 		return qb;
 	}
-	public List<String> search(List<String> inTitle, List<String> notInTitle, List<String> inDescription, List<String> notInDescription, String startDate, String endDate) throws IOException{
+	public List<String> search(String query) throws IOException{
 		List<String> results = new LinkedList<String>();
-		printQuery(inTitle, notInTitle, inDescription, notInDescription, startDate, endDate);
+		
+		/*
 		BooleanQuery.Builder qb = new BooleanQuery.Builder();
-		this.createQuery(inTitle, notInTitle, LuceneConstants.TITLE, qb);
-		this.createQuery(inDescription, notInDescription, LuceneConstants.DESCRIPTION, qb);
-		if (startDate == null){
-			startDate = "0000-00-00";
-		}
-		if (endDate == null ){
-			endDate = "9999-99-99";
-		}
-		BytesRef stime = new BytesRef(startDate.replace("-", ""));
-		BytesRef etime = new BytesRef(endDate.replace("-", ""));
-		qb.add(new TermRangeQuery(LuceneConstants.DATE, stime, etime, true, true), BooleanClause.Occur.MUST);
+		this.createQuery(LuceneConstants.TITLE, qb);
+		this.createQuery(LuceneConstants.ABSTRACT, qb);
         BooleanQuery fq = qb.build();
 		IndexReader reader = DirectoryReader.open(index);
         IndexSearcher searcher = new IndexSearcher(reader);
@@ -122,9 +117,11 @@ public class LuceneSearchApp {
             Document d = searcher.doc(docId);
             results.add(d.get(LuceneConstants.TITLE) + "\t" + d.get(LuceneConstants.DESCRIPTION)  + "\t" + d.get(LuceneConstants.DATE) );
         }
+		*/
 		return results;
+
 	}
-	
+	 
 	public void printQuery(List<String> inTitle, List<String> notInTitle, List<String> inDescription, List<String> notInDescription, String startDate, String endDate) {
 		System.out.print("Search (");
 		if (inTitle != null) {
@@ -170,13 +167,22 @@ public class LuceneSearchApp {
 	public static void main(String[] args) throws IOException {
 		if (args.length > 0) {
 			LuceneSearchApp engine = new LuceneSearchApp();
-			
-			RssFeedParser parser = new RssFeedParser();
+			DocumentCollectionParser parser = new DocumentCollectionParser();
 			parser.parse(args[0]);
-			List<RssFeedDocument> docs = parser.getDocuments();
+			List<DocumentInCollection> docs = parser.getDocuments();
 			
+			for (Iterator<DocumentInCollection> iter = docs.listIterator(); iter.hasNext(); ) {
+				DocumentInCollection a = iter.next();
+			    if (a.getSearchTaskNumber() != 13) {
+			        iter.remove();
+			    }
+			}
 			engine.index(docs);
 			
+			System.out.print(docs);
+			
+			/*
+
 			List<String> inTitle;
 			List<String> notInTitle;
 			List<String> inDescription;
@@ -226,6 +232,7 @@ public class LuceneSearchApp {
 			notInDescription.add("israel");
 			results = engine.search(null, null, null, notInDescription, null, "2011-12-18");
 			engine.printResults(results);
+			*/
 		}
 		else
 			System.out.println("ERROR: the path of a RSS Feed file has to be passed as a command line argument.");

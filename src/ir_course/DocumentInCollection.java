@@ -12,7 +12,7 @@ public class DocumentInCollection {
 	private int searchTaskNumber;
 	private String query;
 	private boolean relevant;
-	
+	private static int count;
 	public DocumentInCollection() {
 		this(null, null, 0, null, false);
 	}
@@ -23,6 +23,7 @@ public class DocumentInCollection {
 		this.searchTaskNumber = searchTaskNumber;
 		this.query = query;
 		this.relevant = relevant;
+		this.count=0;
 	}
 	
 	public String getTitle() {
@@ -66,6 +67,7 @@ public class DocumentInCollection {
 	}
 
 	public String toString() {
-		return "Title: "+title+"\n abstract: "+abstractText+"\n search task number: "+searchTaskNumber+"\n query: "+query+"\n relevant: "+relevant;
+		//return this.searchTaskNumber + "\n";
+		return ". Title: "+title+"\n abstract: "+abstractText+"\n search task number: "+searchTaskNumber+"\n query: "+query+"\n relevant: "+relevant;
 	}
 }
