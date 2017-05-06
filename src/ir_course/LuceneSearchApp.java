@@ -11,10 +11,15 @@
 package ir_course;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.DateTools;
 import org.apache.lucene.document.Document;
@@ -25,6 +30,7 @@ import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.index.IndexWriterConfig.OpenMode;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.BooleanQuery;
@@ -38,203 +44,151 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.RAMDirectory;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.search.BooleanClause;
+import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.en.EnglishAnalyzer;
 import org.apache.lucene.analysis.en.PorterStemFilter;
 
 public class LuceneSearchApp {
 	private Directory index;
-	private PorterAnalyzer analyzer;
+	private Analyzer analyzer;
 	private IndexWriterConfig config;
 	private IndexWriter writer;
 	private int count = 0;
-	public class LuceneConstants {
-		   public static final String TITLE="Title";
-		   public static final String ABSTRACT="abstract";
-	}
-	public LuceneSearchApp() throws IOException {
+	private Settings settings;
+	private IndexSearcher searcher;
+	private IndexReader reader;
+
+	public LuceneSearchApp(Settings settings) throws IOException {
+		this.settings = settings;
 		this.index =  new RAMDirectory();
-		this.analyzer = new PorterAnalyzer();
+		this.analyzer = settings.getAnalyzer();
 		this.config = new IndexWriterConfig(analyzer);
-		this.writer = new IndexWriter(this.index, this.config);
+		this.config.setOpenMode(OpenMode.CREATE_OR_APPEND);
+		this.writer = new IndexWriter(this.index, this.config); 
 	}
 	
 	public void index(List<DocumentInCollection> docs) throws IOException {
 		for (DocumentInCollection doc : docs){
 	      Document document = new Document();
-	      document.add(new TextField("textContent", doc.getTitle()+doc.getAbstractText(), Field.Store.YES));
-	      //document.add(new TextField(LuceneConstants.ABSTRACT, doc.getAbstractText(), Field.Store.YES));
-	      //document.add(new StringField(LuceneConstants.QUERY, doc.getQuery(),Field.Store.YES));
+	      document.add(new TextField(CONSTANTS.TITLE, doc.getTitle(), Field.Store.YES));
+	      document.add(new TextField(CONSTANTS.ABSTRACT, doc.getAbstractText(), Field.Store.YES));
+	      document.add(new StringField(CONSTANTS.RELEVANCE, Boolean.toString(doc.isRelevant()) ,Field.Store.YES));
 	      this.writer.addDocument(document);
-	      this.count++;
 		}
         this.writer.close();
+		reader = DirectoryReader.open(index);
+		searcher = new IndexSearcher(reader);
+		searcher.setSimilarity(settings.getSimilarity());
+
 	}
-	public BooleanQuery.Builder createQuery( List<String> in, List<String> notIn, String type, BooleanQuery.Builder qb){
-		QueryParser qp;
-		if (in != null){
-			for(String s:in){
-				Query query;
-				qp = new QueryParser(type, this.analyzer);
-				try {
-					query = qp.parse(s);
-					qb.add(query,BooleanClause.Occur.MUST);
-				} catch (ParseException e) {
-					e.printStackTrace();
-				}
-			}	
+	public List<DocumentInCollection> search(String queryString, int maxHits) throws IOException{
+		List<DocumentInCollection> results = new LinkedList<DocumentInCollection>();
+		try {
+			QueryParser parser = new QueryParser(CONSTANTS.ABSTRACT, analyzer);
+			Query query = parser.parse(queryString);
+			System.out.println(query);
+			TopDocs hits = searcher.search(query, maxHits);
+			System.out.println("Search Hits :" + hits.totalHits);
+			ScoreDoc[] scoreDocs = hits.scoreDocs;
+			for (int n = 0; n < scoreDocs.length; ++n) {
+				int docid = scoreDocs[n].doc;
+				Document doc = searcher.doc(docid);
+				results.add(new DocumentInCollection(doc.get(CONSTANTS.TITLE), doc.get(CONSTANTS.ABSTRACT),
+						13, queryString, Boolean.parseBoolean(doc.get(CONSTANTS.RELEVANCE))));
+			}
+			reader.close();
+
+		} catch (Exception e) {
+			System.out.println("Error in search" + e);
 		}
-		if (notIn != null){
-			for (String s:notIn)
-			{
-				qp = new QueryParser(type, this.analyzer);
-				Query query;
-				try {
-					query = qp.parse(s);
-					qb.add(query, BooleanClause.Occur.MUST_NOT);
-				} catch (ParseException e) {
-					e.printStackTrace();
-				}
-				
-			}	
-		}
-		return qb;
-	}
-	public List<String> search(String query) throws IOException{
-		List<String> results = new LinkedList<String>();
-		
-		/*
-		BooleanQuery.Builder qb = new BooleanQuery.Builder();
-		this.createQuery(LuceneConstants.TITLE, qb);
-		this.createQuery(LuceneConstants.ABSTRACT, qb);
-        BooleanQuery fq = qb.build();
-		IndexReader reader = DirectoryReader.open(index);
-        IndexSearcher searcher = new IndexSearcher(reader);
-        TopDocs docs = searcher.search(fq, this.count);
-        ScoreDoc[] hits = docs.scoreDocs;
-        for(int i=0;i<hits.length;++i) {
-            int docId = hits[i].doc;
-            Document d = searcher.doc(docId);
-            results.add(d.get(LuceneConstants.TITLE) + "\t" + d.get(LuceneConstants.DESCRIPTION)  + "\t" + d.get(LuceneConstants.DATE) );
-        }
-		*/
+
 		return results;
 
 	}
+	private void addToMapByConfiguration(Map<String, List<Double>> mapByConfiguration, String Key, Double data) {
+		if (!mapByConfiguration.containsKey(settings.toString())) {
+			mapByConfiguration.put(settings.toString(), new ArrayList<Double>());
+		}
+		mapByConfiguration.get(settings.toString()).add(data);
+	}
+
+	private void addToAvg11ptPRByConfig(Map<String, List<Double>> avg11ptPRByConfig, String Key,
+			List<Double> elevenPointPR) {
+		if (!avg11ptPRByConfig.containsKey(Key)) {
+			avg11ptPRByConfig.put(Key, new ArrayList<Double>());
+		}
+		avg11ptPRByConfig.get(Key).addAll(elevenPointPR);
+	}
+
 	 
-	public void printQuery(List<String> inTitle, List<String> notInTitle, List<String> inDescription, List<String> notInDescription, String startDate, String endDate) {
-		System.out.print("Search (");
-		if (inTitle != null) {
-			System.out.print("in title: "+inTitle);
-			if (notInTitle != null || inDescription != null || notInDescription != null || startDate != null || endDate != null)
-				System.out.print("; ");
-		}
-		if (notInTitle != null) {
-			System.out.print("not in title: "+notInTitle);
-			if (inDescription != null || notInDescription != null || startDate != null || endDate != null)
-				System.out.print("; ");
-		}
-		if (inDescription != null) {
-			System.out.print("in description: "+inDescription);
-			if (notInDescription != null || startDate != null || endDate != null)
-				System.out.print("; ");
-		}
-		if (notInDescription != null) {
-			System.out.print("not in description: "+notInDescription);
-			if (startDate != null || endDate != null)
-				System.out.print("; ");
-		}
-		if (startDate != null) {
-			System.out.print("startDate: "+startDate);
-			if (endDate != null)
-				System.out.print("; ");
-		}
-		if (endDate != null)
-			System.out.print("endDate: "+endDate);
-		System.out.println("):");
-	}
-	
-	public void printResults(List<String> results) {
-		if (results.size() > 0) {
-			Collections.sort(results);
-			for (int i=0; i<results.size(); i++)
-				System.out.println(" " + (i+1) + ". " + results.get(i));
-		}
-		else
-			System.out.println(" no results");
-	}
-	
 	public static void main(String[] args) throws IOException {
 		if (args.length > 0) {
-			LuceneSearchApp engine = new LuceneSearchApp();
+			
 			DocumentCollectionParser parser = new DocumentCollectionParser();
 			parser.parse(args[0]);
 			List<DocumentInCollection> docs = parser.getDocuments();
-			
-			for (Iterator<DocumentInCollection> iter = docs.listIterator(); iter.hasNext(); ) {
-				DocumentInCollection a = iter.next();
-			    if (a.getSearchTaskNumber() != 13) {
-			        iter.remove();
-			    }
+			DocumentCollectionProcessor docProcessor = new DocumentCollectionProcessor(docs,
+					13);
+			docs = docProcessor.getFilteredDocuments();
+			List<String> queryStrings = CONSTANTS.getQueries();
+			List<Settings> settings = CONSTANTS.getSettings();
+			Map<String, List<Double>> avg11ptPRByConfig = new HashMap<String, List<Double>>();
+			Map<String, List<Double>> mapByConfiguration = new HashMap<String, List<Double>>();
+			for (String queryString : queryStrings) {
+				System.out.println("----------------------------------------------------------------------");
+				System.out.println("Processing Query : " + queryString);
+				System.out.println("----------------------------------------------------------------------");
+				for (Settings setting : settings) {
+					LuceneSearchApp engine = new LuceneSearchApp(setting);
+					engine.index(docs);
+					List<DocumentInCollection> searchResults = engine.search(queryString,
+							docProcessor.getTotalDocCount());
+					SearchResultStats stats = docProcessor.getRankedSearchResultStats(searchResults);
+					engine.printResults(searchResults, 10);
+
+					engine.addToMapByConfiguration(mapByConfiguration, setting.toString(),
+							stats.getAverage_precision());
+					engine.addToAvg11ptPRByConfig(avg11ptPRByConfig, setting.toString(), stats.getElevenPointPR());
+
+
+				}
 			}
-			engine.index(docs);
-			
+			System.out.println("----------------------------------------------------------------------");
+			System.out.println("Mean Average Precision:");
+			System.out.println("----------------------------------------------------------------------");
+			// Calculate and Print the Mean Average Precision.
+			mapByConfiguration.forEach((k,
+					v) -> System.out.println("MAP = "
+							+ v.stream().collect(Collectors.summarizingDouble(Double::doubleValue)).getAverage()
+							+ " , for Config : " + k));
+			System.out.println("----------------------------------------------------------------------");
+			System.out.println("Averaged 11 Point Precision Recall Values:");
+			System.out.println("----------------------------------------------------------------------");
+			for (Map.Entry<String, List<Double>> entry : avg11ptPRByConfig.entrySet()) {
+				// 11 denotes the number of elements in the 11 point precision
+				// recall values
+				System.out.print(entry.getKey() + " --> ");
+				double[] sum = new double[11];
+				for (int idx = 0; idx < entry.getValue().size(); idx++) {
+					sum[idx % 11] += entry.getValue().get(idx);
+				}
+				System.out.print("[");
+				for (Double val : sum) {
+					System.out.print(val / queryStrings.size());
+					System.out.print(", ");
+				}
+				System.out.println("]");
+			}
 			System.out.print(docs);
-			
-			/*
-
-			List<String> inTitle;
-			List<String> notInTitle;
-			List<String> inDescription;
-			List<String> notInDescription;
-			List<String> results;
-			
-			// 1) search documents with words "kim" and "korea" in the title
-			inTitle = new LinkedList<String>();
-			inTitle.add("kim");
-			inTitle.add("korea");
-			results = engine.search(inTitle, null, null, null, null, null);
-			engine.printResults(results);
-			
-			// 2) search documents with word "kim" in the title and no word "korea" in the description
-			inTitle = new LinkedList<String>();
-			notInDescription = new LinkedList<String>();
-			inTitle.add("kim");
-			notInDescription.add("korea");
-			results = engine.search(inTitle, null, null, notInDescription, null, null);
-			engine.printResults(results);
-
-			// 3) search documents with word "us" in the title, no word "dawn" in the title and word "" and "" in the description
-			inTitle = new LinkedList<String>();
-			inTitle.add("us");
-			notInTitle = new LinkedList<String>();
-			notInTitle.add("dawn");
-			inDescription = new LinkedList<String>();
-			inDescription.add("american");
-			inDescription.add("confession");
-			results = engine.search(inTitle, notInTitle, inDescription, null, null, null);
-			engine.printResults(results);
-			
-			// 4) search documents whose publication date is 2011-12-18
-			results = engine.search(null, null, null, null, "2011-12-18", "2011-12-18");
-			engine.printResults(results);
-			
-			// 5) search documents with word "video" in the title whose publication date is 2000-01-01 or later
-			inTitle = new LinkedList<String>();
-			inTitle.add("video");
-			results = engine.search(inTitle, null, null, null, "2000-01-01", null);
-			engine.printResults(results);
-			
-			// 6) search documents with no word "canada" or "iraq" or "israel" in the description whose publication date is 2011-12-18 or earlier
-			notInDescription = new LinkedList<String>();
-			notInDescription.add("canada");
-			notInDescription.add("iraq");
-			notInDescription.add("israel");
-			results = engine.search(null, null, null, notInDescription, null, "2011-12-18");
-			engine.printResults(results);
-			*/
 		}
 		else
 			System.out.println("ERROR: the path of a RSS Feed file has to be passed as a command line argument.");
 	}
+
+	private void printResults(List<DocumentInCollection> searchResults, int i) {
+		// TODO Auto-generated method stub
+		
+	}
+	
 }
