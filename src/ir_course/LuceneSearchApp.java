@@ -127,47 +127,35 @@ public class LuceneSearchApp {
 			
 			DocumentCollectionParser parser = new DocumentCollectionParser();
 			parser.parse(args[0]);
-			List<DocumentInCollection> docs = parser.getDocuments();
+			List<DocumentInCollection> docs = parser.getDocuments(13);
 			DocumentCollectionProcessor docProcessor = new DocumentCollectionProcessor(docs,
 					13);
 			docs = docProcessor.getFilteredDocuments();
 			List<String> queryStrings = CONSTANTS.getQueries();
 			List<Settings> settings = CONSTANTS.getSettings();
-			Map<String, List<Double>> avg11ptPRByConfig = new HashMap<String, List<Double>>();
-			Map<String, List<Double>> mapByConfiguration = new HashMap<String, List<Double>>();
+			Map<String, List<Double>> resultForSettings = new HashMap<String, List<Double>>();
+			Map<String, List<Double>> mapForSetting = new HashMap<String, List<Double>>();
 			for (String queryString : queryStrings) {
-				System.out.println("----------------------------------------------------------------------");
-				System.out.println("Processing Query : " + queryString);
-				System.out.println("----------------------------------------------------------------------");
+				System.out.println("Query:" + queryString);
 				for (Settings setting : settings) {
 					LuceneSearchApp engine = new LuceneSearchApp(setting);
 					engine.index(docs);
 					List<DocumentInCollection> searchResults = engine.search(queryString,
-							docProcessor.getTotalDocCount());
-					SearchResultStats stats = docProcessor.getRankedSearchResultStats(searchResults);
-					engine.printResults(searchResults, 10);
+							docs.size());
+					LuceneStatistics stats = docProcessor.getRankedSearchResultStats(searchResults);
 
-					engine.addToMapByConfiguration(mapByConfiguration, setting.toString(),
+					engine.addToMapByConfiguration(mapForSetting, setting.toString(),
 							stats.getAverage_precision());
-					engine.addToAvg11ptPRByConfig(avg11ptPRByConfig, setting.toString(), stats.getElevenPointPR());
+					engine.addToAvg11ptPRByConfig(resultForSettings, setting.toString(), stats.getElevenPointPR());
 
 
 				}
 			}
-			System.out.println("----------------------------------------------------------------------");
-			System.out.println("Mean Average Precision:");
-			System.out.println("----------------------------------------------------------------------");
-			// Calculate and Print the Mean Average Precision.
-			mapByConfiguration.forEach((k,
+			mapForSetting.forEach((k,
 					v) -> System.out.println("MAP = "
 							+ v.stream().collect(Collectors.summarizingDouble(Double::doubleValue)).getAverage()
 							+ " , for Config : " + k));
-			System.out.println("----------------------------------------------------------------------");
-			System.out.println("Averaged 11 Point Precision Recall Values:");
-			System.out.println("----------------------------------------------------------------------");
-			for (Map.Entry<String, List<Double>> entry : avg11ptPRByConfig.entrySet()) {
-				// 11 denotes the number of elements in the 11 point precision
-				// recall values
+			for (Map.Entry<String, List<Double>> entry : resultForSettings.entrySet()) {
 				System.out.print(entry.getKey() + " --> ");
 				double[] sum = new double[11];
 				for (int idx = 0; idx < entry.getValue().size(); idx++) {
@@ -180,7 +168,6 @@ public class LuceneSearchApp {
 				}
 				System.out.println("]");
 			}
-			System.out.print(docs);
 		}
 		else
 			System.out.println("ERROR: the path of a RSS Feed file has to be passed as a command line argument.");

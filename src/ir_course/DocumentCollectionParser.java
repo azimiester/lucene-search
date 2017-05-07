@@ -8,6 +8,7 @@
 package ir_course;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -29,7 +30,10 @@ public class DocumentCollectionParser extends DefaultHandler {
 	private boolean searchTaskNumber;
 	private boolean query;
 	private boolean relevance;
-	
+	private Integer searchTask;
+	private Integer docsInSearchTask = 0;
+	private Integer relevantDocCount = 0;
+
 	private String currentText;
 	private DocumentInCollection currentDoc;
 	
@@ -42,6 +46,7 @@ public class DocumentCollectionParser extends DefaultHandler {
 		this.searchTaskNumber = false;
 		this.query = false;
 		this.relevance = false;
+		
 	}
 	
 	// parses the document collection in the given URI
@@ -58,9 +63,17 @@ public class DocumentCollectionParser extends DefaultHandler {
 		}
 	}
 	
-	// returns the documents of the collection as a list
-	public List<DocumentInCollection> getDocuments() {
-		return this.docs;
+	public List<DocumentInCollection> getDocuments(int taskNumber) {
+		List<DocumentInCollection> originalSet =  this.docs;
+		List<DocumentInCollection> filteredDocuments = new ArrayList<DocumentInCollection>();
+		Integer docsInSearchTask = 0;
+		for (DocumentInCollection doc : originalSet) {
+			if (doc.getSearchTaskNumber() == taskNumber) {
+				filteredDocuments.add(doc);
+				docsInSearchTask++;
+			}
+		}
+		return filteredDocuments;
 	}
 	
 	

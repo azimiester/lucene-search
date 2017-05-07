@@ -41,7 +41,7 @@ public class CONSTANTS {
 			List<String> queryStrings = new ArrayList<String>();
 			queryStrings.add("visualizing dataset");
 			queryStrings.add("large data set visualization");
-			queryStrings.add("huge data sets");
+			queryStrings.add("huge data sets visualization");
 			queryStrings.add("visualizing high-dimensional dataset");
 			return queryStrings;
 	   }

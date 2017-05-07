@@ -5,7 +5,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class SearchResultStats {
+public class LuceneStatistics {
 	// Precision of the search results
 	private Double precision = 0.0;
 	// Recall of the search results
@@ -35,7 +35,7 @@ public class SearchResultStats {
 	 * @param elevenPointPR
 	 *            List of eleven Precision Recall Values.
 	 */
-	public SearchResultStats(Double precision, Double recall, List<Double> elevenPointPR) {
+	public LuceneStatistics(Double precision, Double recall, List<Double> elevenPointPR) {
 		this.precision = precision;
 		this.recall = recall;
 		this.elevenPointPR = elevenPointPR;
@@ -44,7 +44,7 @@ public class SearchResultStats {
 	/**
 	 * Default constructor
 	 */
-	public SearchResultStats() {
+	public LuceneStatistics() {
 		// If you just want to use this class as a container
 		// this default constructor allows you to just set the
 		// corresponding values after creating the object of SearchResultStats
@@ -61,7 +61,7 @@ public class SearchResultStats {
 	 *            The count of relevant documents in the original "filtered"
 	 *            document collection.
 	 */
-	public SearchResultStats(List<DocumentInCollection> searchResults, Integer relevantsInCorpus) {
+	public LuceneStatistics(List<DocumentInCollection> searchResults, Integer relevantsInCorpus) {
 		this.relevanceOfResults = searchResults.stream().map(item -> item.isRelevant()).collect(Collectors.toList());
 		this.relevantsInCorpus = relevantsInCorpus;
 		calculatePrecisionsAtK();
@@ -127,32 +127,37 @@ public class SearchResultStats {
 		Double[] ElevenPointPR = new Double[11];
 		Integer relevantsInsearchResult = (int) relevanceOfResults.stream().filter(p -> p == true).count();
 		Double recallInPercent = (relevantsInsearchResult * 100) / relevantsInCorpus.doubleValue();
-		
-			Double cumRelevants = 0.0; // sum of relevants so far
-			Integer cumResults = 1; // sum of results processed so far
-			Double currentRecallPercent = 0.0;
-			Integer recall10thsPlace = 0;
+	
+		Double cumRelevants = 0.0; // sum of relevants so far
+		Integer cumResults = 1; // sum of results processed so far
+		Double currentRecallPercent = 0.0;
+		Integer recall10thsPlace = 0;
 
-			cumResults = 0;
-			cumRelevants = 0.0; // sum of relevants so far
-			for (Boolean relevance : relevanceOfResults) {
-				if (relevance) {
-					cumRelevants++;
+		cumResults = 0;
+		cumRelevants = 0.0; // sum of relevants so far
+		for (Boolean relevance : relevanceOfResults) {
+			if (relevance) {
+				cumRelevants++;
 
-					currentRecallPercent = cumRelevants / relevantsInCorpus;
-					// at each 10% threshold we will update the precision
-					recall10thsPlace = (int) (currentRecallPercent * 10);
-					// * 10 because we just want the 10ths place for indexing
-					// into our 11pointPR array.
+				currentRecallPercent = cumRelevants / relevantsInCorpus;
+				// at each 10% threshold we will update the precision
+				recall10thsPlace = (int) (currentRecallPercent * 10);
+				// * 10 because we just want the 10ths place for indexing
+				// into our 11pointPR array.
 
-					ElevenPointPR[recall10thsPlace] = precisionAtK
-							.subList(cumRelevants.intValue() - 1, precisionAtK.size()).stream()
-							.collect(Collectors.summarizingDouble(Double::doubleValue)).getMax();
+				ElevenPointPR[recall10thsPlace] = precisionAtK
+						.subList(cumRelevants.intValue() - 1, precisionAtK.size()).stream()
+						.collect(Collectors.summarizingDouble(Double::doubleValue)).getMax();
 
-				}
-				cumResults++;
 			}
+			cumResults++;
+		}
 		
+		for (int i=0; i<=10; i++){
+			if(ElevenPointPR[i] == null && i != 0){
+				ElevenPointPR[i] = ElevenPointPR[i-1];
+			}
+		}
 		return Arrays.asList(ElevenPointPR);
 	}
 
