@@ -4,27 +4,22 @@ package ir_course;
 import java.util.ArrayList;
 import java.util.List;
 
-public class DocumentCollectionProcessor {
+public class DCHelper {
 	private List<DocumentInCollection> filteredDocuments;
 	private Integer searchTask=13;
 	private Integer docsInSearchTask = 0;
 	private Integer relevantDocCount = 0;
 
 	
-	public DocumentCollectionProcessor(List<DocumentInCollection> documents, Integer searchTask) {
+	public DCHelper(List<DocumentInCollection> documents, Integer searchTask) {
 		this.searchTask = searchTask;
 		this.filteredDocuments = getFilteredDocuments(documents, searchTask);
-		updateCommonStats();
+		this.docsInSearchTask = filteredDocuments.size();
+		this.relevantDocCount = getRelevantDocs(filteredDocuments);
 	}
 
 	public List<DocumentInCollection> getFilteredDocuments() {
-		return filteredDocuments;
-	}
-	
-
-	private void updateCommonStats() {
-		this.docsInSearchTask = filteredDocuments.size();
-		this.relevantDocCount = getRelevantDocs(filteredDocuments);
+		return this.filteredDocuments;
 	}
 
 	private Integer getRelevantDocs(List<DocumentInCollection> docs) {
@@ -50,8 +45,8 @@ public class DocumentCollectionProcessor {
 		return filteredDocuments;
 	}
 	
-	public LuceneStatistics getRankedSearchResultStats(List<DocumentInCollection> searchResults) {
-		LuceneStatistics stats = new LuceneStatistics(searchResults, relevantDocCount);
+	public ElevenPointCalculator getRankedSearchResultStats(List<DocumentInCollection> searchResults) {
+		ElevenPointCalculator stats = new ElevenPointCalculator(searchResults, relevantDocCount);
 		Integer relevantDocsInSearchCount = getRelevantDocs(searchResults);
 		Integer searchResultCount = searchResults.size();
 		stats.setRecall(relevantDocsInSearchCount / relevantDocCount.doubleValue());

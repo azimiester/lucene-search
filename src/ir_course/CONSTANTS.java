@@ -13,7 +13,7 @@ public class CONSTANTS {
 	   public static final String TITLE="Title";
 	   public static final String ABSTRACT="abstract";
 	   public static final String RELEVANCE = "REL";
-	   public static final String TF_IDF = "tfidf";
+	   public static final String VSM = "vsm";
 	   public static final String BM25 = "bm25";
 	   
 	   public static List<Settings> getSettings() {
@@ -23,17 +23,17 @@ public class CONSTANTS {
 			settings
 					.add(new Settings(CONSTANTS.ENG_M, CONSTANTS.REMOVE_STOP, CONSTANTS.BM25 ));
 			settings
-					.add(new Settings(CONSTANTS.K, CONSTANTS.REMOVE_STOP, CONSTANTS.TF_IDF ));
+					.add(new Settings(CONSTANTS.K, CONSTANTS.REMOVE_STOP, CONSTANTS.VSM ));
 			settings
-					.add(new Settings(CONSTANTS.PORTER, CONSTANTS.REMOVE_STOP, CONSTANTS.TF_IDF ));
+					.add(new Settings(CONSTANTS.PORTER, CONSTANTS.REMOVE_STOP, CONSTANTS.VSM ));
 			settings
 					.add(new Settings(CONSTANTS.ENG, CONSTANTS.DONT_REMOVE_STOP, CONSTANTS.BM25 ));
 			settings
 					.add(new Settings(CONSTANTS.ENG_M, CONSTANTS.DONT_REMOVE_STOP, CONSTANTS.BM25 ));
 			settings
-					.add(new Settings(CONSTANTS.K, CONSTANTS.DONT_REMOVE_STOP, CONSTANTS.TF_IDF ));
+					.add(new Settings(CONSTANTS.K, CONSTANTS.DONT_REMOVE_STOP, CONSTANTS.VSM ));
 			settings
-					.add(new Settings(CONSTANTS.PORTER, CONSTANTS.DONT_REMOVE_STOP, CONSTANTS.TF_IDF ));
+					.add(new Settings(CONSTANTS.PORTER, CONSTANTS.DONT_REMOVE_STOP, CONSTANTS.VSM ));
 			return settings;
 	   }
 	   

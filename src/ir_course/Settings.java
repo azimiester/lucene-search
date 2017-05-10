@@ -82,8 +82,8 @@ class Settings {
 	
 	@Override
 	public String toString() {
-		return "[Configuration: Removing Stop Words = " + this._removeStopWords + ", Stemmer = " + this._stemmer + ", Similarity = "
-				+ this._similarity + "]";
+		return "==>Settings: Stop words removed = " + this._removeStopWords + ", Stemmer = " + this._stemmer + ", Similarity = "
+				+ this._similarity + "<==";
 	}
 	
 }

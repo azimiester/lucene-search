@@ -89,7 +89,7 @@ public class LuceneSearchApp {
 			Query query = parser.parse(queryString);
 			System.out.println(query);
 			TopDocs hits = searcher.search(query, maxHits);
-			System.out.println("Search Hits :" + hits.totalHits);
+			System.out.println("Found: " + hits.totalHits);
 			ScoreDoc[] scoreDocs = hits.scoreDocs;
 			for (int n = 0; n < scoreDocs.length; ++n) {
 				int docid = scoreDocs[n].doc;
@@ -121,18 +121,45 @@ public class LuceneSearchApp {
 		avg11ptPRByConfig.get(Key).addAll(elevenPointPR);
 	}
 
-	 
+	public static void printMapWithSettings(Map<String, List<Double>>  map){
+		System.out.println();
+		System.out.println("§§§§--M.A.P--§§§§");
+		System.out.println();
+		map.forEach((j, k) -> System.out.println(j + "\n" + "MAP: " + k.stream().collect(Collectors.summarizingDouble(Double::doubleValue)).getAverage()  ));
+	}
+	
+	public static void print11PointsForSettings(Map<String, List<Double>> result, int queryStrSize){
+		System.out.println();
+		System.out.println("§§§§--Eleven Point PR--§§§§");
+		System.out.println();
+		
+		// Getting Average for all queries and finding MAP for each Config. 
+		for (Map.Entry<String, List<Double>> entry : result.entrySet()) {
+			System.out.print(entry.getKey() + "\n");
+			double[] sum = new double[11];
+			for (int idx = 0; idx < entry.getValue().size(); idx++) {
+				sum[idx % 11] += entry.getValue().get(idx);
+			}
+			System.out.print("[");
+			for (Double val : sum) {
+				System.out.print(val / queryStrSize);
+				System.out.print(", ");
+			}
+			System.out.println("]");
+		}
+	}
 	public static void main(String[] args) throws IOException {
 		if (args.length > 0) {
-			
 			DocumentCollectionParser parser = new DocumentCollectionParser();
 			parser.parse(args[0]);
 			List<DocumentInCollection> docs = parser.getDocuments(13);
-			DocumentCollectionProcessor docProcessor = new DocumentCollectionProcessor(docs,
-					13);
-			docs = docProcessor.getFilteredDocuments();
+			DCHelper dcHelper = new DCHelper(docs, 13);
+			// Get tasks for information visualization only.
+			docs = dcHelper.getFilteredDocuments();
+			// Getting queries and settings from Constants.
 			List<String> queryStrings = CONSTANTS.getQueries();
 			List<Settings> settings = CONSTANTS.getSettings();
+			// Storing each of the MAP and 11 Point in a Hashmap using config string as Key.
 			Map<String, List<Double>> resultForSettings = new HashMap<String, List<Double>>();
 			Map<String, List<Double>> mapForSetting = new HashMap<String, List<Double>>();
 			for (String queryString : queryStrings) {
@@ -142,40 +169,19 @@ public class LuceneSearchApp {
 					engine.index(docs);
 					List<DocumentInCollection> searchResults = engine.search(queryString,
 							docs.size());
-					LuceneStatistics stats = docProcessor.getRankedSearchResultStats(searchResults);
-
-					engine.addToMapByConfiguration(mapForSetting, setting.toString(),
-							stats.getAverage_precision());
-					engine.addToAvg11ptPRByConfig(resultForSettings, setting.toString(), stats.getElevenPointPR());
-
-
+					ElevenPointCalculator _11Pt = dcHelper.getRankedSearchResultStats(searchResults);
+					// Get Map for each setting / Query Pair.
+					engine.addToMapByConfiguration(mapForSetting, setting.toString(),_11Pt.getAvgPr());
+					// Get 11 pt for each setting / Query Pair.
+					engine.addToAvg11ptPRByConfig(resultForSettings, setting.toString(), _11Pt.getElevenPointPR());
 				}
 			}
-			mapForSetting.forEach((k,
-					v) -> System.out.println("MAP = "
-							+ v.stream().collect(Collectors.summarizingDouble(Double::doubleValue)).getAverage()
-							+ " , for Config : " + k));
-			for (Map.Entry<String, List<Double>> entry : resultForSettings.entrySet()) {
-				System.out.print(entry.getKey() + " --> ");
-				double[] sum = new double[11];
-				for (int idx = 0; idx < entry.getValue().size(); idx++) {
-					sum[idx % 11] += entry.getValue().get(idx);
-				}
-				System.out.print("[");
-				for (Double val : sum) {
-					System.out.print(val / queryStrings.size());
-					System.out.print(", ");
-				}
-				System.out.println("]");
-			}
+			// Print 11 PT
+			print11PointsForSettings(resultForSettings, queryStrings.size());
+			// printMap
+			printMapWithSettings(mapForSetting);
 		}
 		else
 			System.out.println("ERROR: the path of a RSS Feed file has to be passed as a command line argument.");
 	}
-
-	private void printResults(List<DocumentInCollection> searchResults, int i) {
-		// TODO Auto-generated method stub
-		
-	}
-	
 }
